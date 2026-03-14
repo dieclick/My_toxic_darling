@@ -11,9 +11,8 @@
     :root {
       --ink: #1a1208;
       --paper: #f5ede0;
-      --accent: #b5341a;
+      --accent: #a11246;
       --muted: #7a6a55;
-      --grain-opacity: 0.04;
     }
 
     html, body {
@@ -25,23 +24,13 @@
       color: var(--ink);
       font-family: 'Courier Prime', monospace;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      align-items: left;
+      justify-content: left;
       min-height: 100vh;
       overflow: hidden;
       position: relative;
     }
 
-    /* Grain overlay */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-      opacity: var(--grain-opacity);
-      pointer-events: none;
-      z-index: 100;
-    }
 
     /* Decorative corner lines */
     body::after {
@@ -50,11 +39,12 @@
       inset: 24px;
       border: 1px solid rgba(26,18,8,0.15);
       pointer-events: none;
+      border-radius: 2%;
       z-index: 99;
     }
 
     .container {
-      text-align: center;
+      text-align: left;
       max-width: 560px;
       padding: 3rem 2rem;
       animation: fadeUp 1s ease both;
@@ -90,12 +80,13 @@
     }
 
     .divider {
-      width: 48px;
+      width: 350px;
       height: 1px;
       background: var(--accent);
-      margin: 1.6rem auto;
+      margin: 1rem auto;
+      margin-left: 0;
       animation: expandW 0.8s 0.5s ease both;
-      transform-origin: center;
+      transform-origin: left;
     }
 
     @keyframes expandW {
@@ -121,10 +112,11 @@
       color: var(--paper);
       background: var(--ink);
       border: 1px solid var(--ink);
-      padding: 0.9em 2.4em;
+      padding: 1em 2.4em;
       position: relative;
       transition: color 0.25s, background 0.25s;
       animation: fadeUp 1s 0.55s ease both;
+      margin: 0.1rem;
     }
 
     .btn::after {
@@ -155,6 +147,7 @@
       letter-spacing: 0.1em;
       color: rgba(26,18,8,0.25);
       animation: fadeUp 1s 0.7s ease both;
+      text-align: center;
     }
   </style>
 </head>
@@ -171,7 +164,6 @@
     <a class="btn" href="./game/index.html" target="_blank" rel="noopener">
       Enter the Game
     </a>
-    <br>
     <a class="btn" href="https://docs.google.com/document/d/1zahBvPeYX7XudbdrYqYofioRd9I79O5Yqo79j1zNP2o/edit?usp=sharing" target="_blank" rel="noopener">
       Enter the documentation
     </a>
