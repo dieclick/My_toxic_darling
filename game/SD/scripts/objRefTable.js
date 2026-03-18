@@ -170,6 +170,7 @@ self.C3_GetObjectRefTable = function () {
 		C3.Plugins.System.Exps.gpuutilisation,
 		C3.Plugins.System.Exps.cpuutilisation,
 		C3.Plugins.Sprite.Acts.SetSize,
+		C3.Plugins.Sprite.Exps.Height,
 		C3.Plugins.System.Acts.SetTimescale,
 		C3.Behaviors.Tween.Cnds.IsAnyPlaying,
 		C3.Behaviors.Sin.Acts.SetEnabled,
