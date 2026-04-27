@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Construct 3 Array Grid Editor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Datatype:wght@100..900&display=swap');
+
+  :root {
+    --bg: #0e0e10;
+    --surface: #17171a;
+    --surface2: #1f1f24;
+    --border: #2e2e36;
+    --accent: #ffaa33;
+    --accent2: #ed0047;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --danger: #e05c6e;
+    --success: #4fd1c5;
+    --row-hover: rgba(124,106,247,0.06);
+    --header-bg: #13131a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: var(--header-bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Datatype', sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+  }
+  .logo span { color: var(--accent2); }
+
+  .toolbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a1a1a; }
+  .btn.primary:hover { opacity: 0.85; }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover { background: rgba(224,92,110,0.1); }
+  .btn.success { border-color: var(--success); color: var(--success); }
+  .btn.success:hover { background: rgba(79,209,197,0.1); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn:disabled:hover { border-color: var(--border); color: var(--text); }
+
+  .sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+
+  /* Search bar */
+  #search-bar {
+    padding: 6px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  #search-bar.visible { display: flex; }
+  #search-input {
+    flex: 1;
+    max-width: 360px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 5px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #search-input:focus { border-color: var(--accent); }
+  #search-col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 5px 8px;
+    outline: none;
+    cursor: pointer;
+  }
+  #search-count { font-size: 11px; color: var(--muted); }
+
+  #drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    margin: 24px;
+    padding: 48px;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: pointer;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(255,170,51,0.04);
+  }
+  #drop-zone h2 {
+    font-family: 'Datatype', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  #drop-zone p { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  #drop-zone input[type=file] { display: none; }
+
+  #status-bar {
+    padding: 6px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  #status-bar .tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: var(--accent2);
+    font-size: 10px;
+  }
+  #autosave-indicator {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  #autosave-indicator .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+
+  #grid-container {
+    flex: 1;
+    overflow: auto;
+    margin: 0;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  thead th {
+    background: var(--header-bg);
+    color: var(--accent);
+    font-family: 'Datatype', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  thead th.corner {
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background: var(--header-bg);
+    min-width: 48px;
+    color: var(--muted);
+  }
+
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr.hidden-row { display: none; }
+  tbody tr.search-match td { background: rgba(255,170,51,0.06); }
+  tbody tr.search-match td input { color: #fff; }
+
+  td {
+    border: 1px solid var(--border);
+    padding: 0;
+    min-width: 160px;
+    max-width: 260px;
+  }
+  td.row-num {
+    background: var(--header-bg);
+    color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+    padding: 0 6px;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    min-width: 48px;
+    max-width: 48px;
+    border-right: 2px solid var(--border);
+    user-select: none;
+  }
+
+  td input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 8px;
+    display: block;
+    transition: background 0.1s;
+  }
+  td input:focus {
+    background: rgba(124,106,247,0.12);
+    color: #fff;
+  }
+  td.col-0 input { color: var(--text); }
+  td.col-1 input { color: #a78bfa; }
+  td.col-2 input { color: var(--accent2); }
+  td.col-3 input { color: #f6ad55; }
+  td.col-4 input { color: #f6ad55; }
+  td.col-5 input { color: #68d391; }
+  td.col-6 input { color: #68d391; }
+
+  td input:placeholder-shown { color: var(--border); }
+
+  /* search highlight inside input */
+  td input.search-hit { background: rgba(255,170,51,0.18) !important; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    width: 90%;
+    max-width: 640px;
+  }
+  .modal h3 {
+    font-family: 'Datatype', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--accent);
+  }
+  .modal textarea {
+    width: 100%;
+    height: 220px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 10px;
+    resize: vertical;
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: #1a1a1a;
+    font-size: 12px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    font-weight: 600;
+  }
+  #toast.show { opacity: 1; }
+
+  #empty-state { display: block; }
+  #main-ui { display: none; }
+
+  /* keyboard nav highlight */
+  td input.kb-focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo" style="display:flex; align-items:center; gap:10px;">
+    <img src="https://i.ibb.co/hRvd10m3/Macrohard-Logo.png" style="height:28px; width:auto;" alt="logo" />
+    MacroHard<span> C3GridEditor</span>
+  </div>
+  <div class="toolbar" id="main-toolbar" style="display:none">
+    <button class="btn" id="btn-undo" onclick="undo()" disabled title="Undo (Ctrl+Z)">↩ Undo</button>
+    <button class="btn" id="btn-redo" onclick="redo()" disabled title="Redo (Ctrl+Y)">↪ Redo</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="addRow()">+ Row</button>
+    <button class="btn" onclick="addCol()">+ Column</button>
+    <button class="btn danger" onclick="delLastRow()">− Row</button>
+    <button class="btn danger" onclick="delLastCol()">− Col</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="toggleSearch()" title="Search (Ctrl+F)">🔍 Search</button>
+    <div class="sep"></div>
+    <button class="btn success" onclick="openExport()">Export JSON</button>
+    <button class="btn success" onclick="copyJSON()">Copy JSON</button>
+    <button class="btn primary" onclick="openImport()">Import JSON</button>
+    <button class="btn" onclick="downloadJSON()">Download .json</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="loadNew()">Load new file</button>
+  </div>
+</header>
+
+<div id="empty-state">
+  <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <h2>Drop your JSON file here</h2>
+    <p>Or click to browse. Made to support Construct 3 c2array format, Made for My toxic darling, by Macrohard</p>
+    <button class="btn primary" style="margin-top:8px" onclick="event.stopPropagation();document.getElementById('file-input').click()">Browse file</button>
+    <br><br>
+    <button class="btn" onclick="event.stopPropagation();loadDefault()">Load BlueDoor.json (demo)</button>
+    <input type="file" id="file-input" accept=".json" onchange="handleFile(this.files[0])"/>
+  </div>
+</div>
+
+<div id="main-ui">
+  <div id="status-bar">
+    <span id="file-name" class="tag">untitled.json</span>
+    <span id="dim-label">0 rows × 0 cols</span>
+    <span id="cell-hint">Somewhat VibeCoded by Dieclick ngl</span>
+    <div id="autosave-indicator"><div class="dot"></div><span id="autosave-label">saved</span></div>
+  </div>
+  <div id="search-bar">
+    <input id="search-input" placeholder="Search..." oninput="doSearch()" />
+    <select id="search-col" onchange="doSearch()">
+      <option value="-1">All columns</option>
+    </select>
+    <span id="search-count"></span>
+    <button class="btn" onclick="clearSearch()">✕ Clear</button>
+  </div>
+  <div id="grid-container"></div>
+</div>
+
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <h3>Exported JSON</h3>
+    <textarea id="export-text" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn success" onclick="copyFromModal()">Copy to clipboard</button>
+      <button class="btn" onclick="closeModal('export-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="import-modal">
+  <div class="modal">
+    <h3>Import JSON</h3>
+    <textarea id="import-text" placeholder="Paste your c2array JSON here..."></textarea>
+    <div class="modal-actions">
+      <button class="btn primary" onclick="doImport()">Import</button>
+      <button class="btn" onclick="closeModal('import-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const DEFAULT_JSON = {"c2array":true,"size":[7,40,1],"data":[[[""],["You have chosen the Blue door"],["You are in andless row of apartments"],["Each represent one of our asigments grades"],["Yours is like 0"],["Who said that?"],["The splendorman, Nice to meet you [tn]"],["H- How do you know my name?"],["I know the names of many"],["But, but we never met!"],["Oh we did Darling, but you can't remember"],["Don't you remember when we flashed across the stars, and you looked at my eyes with whimsy smiles?"],["I.. I don't thin-"],["Don't make a fool of yourself, Darling. We can start over, trust in me!"],["Hey. I really don't think i should be here"],["NO! Darling!"],["Please, listen to me. You know you are happy with me, please!"],["Let me go! I want to go back!"],["You dont get it love! I need you. Please!"],["I told you to get away from me!"],["HEY! NO... Stop it now! LOVE!"],["You won't go away love, you need me, and I need you."],["And you know there is no love outside, nowhere but here and no one but me!"],["Remember who hurt you! The gay slenderman!"],["And all the freak things he did to you, Darling! Please!"],["I've done nothing but professing my love!"],["And outside!.... There!... There is no love!"],["An eerie sensation of melancholy breezes you when you remember dark days"],["You... You're right..."],["Come hug me love.... We're meant to be together darling."],["y- yes dear..."],["And that's how I stayed"],["..........................."],["three weeks later he cheated on me with gay slenderman."],[""],[""],[""],[""],[""],[""]],[[""],[""],[""],[""],["???"],["[tn]"],["Splendorman"],["[tn]"],["Splendorman"],["[tn]"],["Splendorman"],["Splendorman"],["[tn]"],["Splendorman"],["[tn]"],["Splendorman"],["Splendorman"],["[tn]"],["Splendorman"],["[tn]"],["Splendorman"],["Splendorman"],["Splendorman"],["Splendorman"],["Splendorman"],["Splendorman"],["Splendorman"],[""],["[tn]"],["Splendorman"],["[tn]"],[""],[""],[""],[""],[""],[""],[""],[""],[""]],[["Sprite Anim"],[""],[""],[""],[""],[""],["[in]"],[""],[""],[""],[""],[""],[""],[""],[""],["[shake]"],[""],[""],[""],[""],["[shake]"],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""]],[["BG"],[""],["Hall"],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""]],[["BG Anim"],["[fadeout]"],["[fadein]"],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""]],[["Music"],[""],[""],[""],[""],[""],["[play]crack"],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""]],[["Music Anim"],["[musicfadeout]"],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],[""],["[musicfadeout]"],[""],[""],[""],[""],[""],[""],[""],[""]]]};
+
+const COL_LABELS = ["Dialogue","Speaker","Sprite Anim","BG","BG Anim","Music","Music Anim"];
+let grid = [];
+let currentFileName = "untitled.json";
+let lastEditedRow = null;
+
+// ─── UNDO / REDO ────────────────────────────────────────────────
+let history = [];
+let historyIndex = -1;
+
+function snapshot() {
+  // Deep clone grid
+  const s = grid.map(r => [...r]);
+  // Remove future if we branched
+  history = history.slice(0, historyIndex + 1);
+  history.push(s);
+  if (history.length > 100) history.shift();
+  historyIndex = history.length - 1;
+  updateUndoButtons();
+}
+
+function undo() {
+  if (historyIndex <= 0) return;
+  historyIndex--;
+  grid = history[historyIndex].map(r => [...r]);
+  renderGrid();
+  updateUndoButtons();
+  toast('Undo');
+}
+
+function redo() {
+  if (historyIndex >= history.length - 1) return;
+  historyIndex++;
+  grid = history[historyIndex].map(r => [...r]);
+  renderGrid();
+  updateUndoButtons();
+  toast('Redo');
+}
+
+function updateUndoButtons() {
+  document.getElementById('btn-undo').disabled = historyIndex <= 0;
+  document.getElementById('btn-redo').disabled = historyIndex >= history.length - 1;
+}
+
+// ─── AUTOSAVE ───────────────────────────────────────────────────
+const AUTOSAVE_KEY = 'macrohard_grid_autosave';
+let autosaveTimer;
+
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  setAutosaveLabel('saving...');
+  autosaveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+        fileName: currentFileName,
+        colLabels: [...COL_LABELS],
+        grid: grid.map(r => [...r])
+      }));
+      setAutosaveLabel('saved');
+    } catch(e) {
+      setAutosaveLabel('save failed');
+    }
+  }, 800);
+}
+
+function setAutosaveLabel(msg) {
+  const el = document.getElementById('autosave-label');
+  if (el) el.textContent = msg;
+}
+
+function loadAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data.grid || !data.grid.length) return false;
+    const confirmed = confirm(`Autosave found for "${data.fileName || 'unknown'}".\nYou wish to restore it?`);
+    if (!confirmed) return false;
+    currentFileName = data.fileName || 'untitled.json';
+    COL_LABELS.length = 0;
+    data.colLabels.forEach(l => COL_LABELS.push(l));
+    grid = data.grid.map(r => [...r]);
+    showUI();
+    renderGrid();
+    snapshot();
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── LOAD ────────────────────────────────────────────────────────
+function loadDefault(){
+  currentFileName = "BlueDoor.json";
+  loadFromParsed(DEFAULT_JSON);
+}
+
+function handleFile(file){
+  if(!file) return;
+  currentFileName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      loadFromParsed(parsed);
+    } catch(err) {
+      toast('Invalid JSON: ' + err.message, true);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function loadFromParsed(parsed){
+  if(!parsed.c2array || !parsed.data){ toast('Not a valid c2array JSON', true); return; }
+  const numCols = parsed.data.length;
+  const numRows = parsed.data[0].length;
+  grid = [];
+  for(let r=0;r<numRows;r++){
+    grid[r]=[];
+    for(let c=0;c<numCols;c++) grid[r][c] = parsed.data[c][r][0]||"";
+  }
+  while(COL_LABELS.length < numCols) COL_LABELS.push('Col '+COL_LABELS.length);
+  history = []; historyIndex = -1;
+  snapshot();
+  showUI();
+  renderGrid();
+  updateSearchColSelect();
+}
+
+function showUI(){
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('main-ui').style.display = 'flex';
+  document.getElementById('main-ui').style.flexDirection = 'column';
+  document.getElementById('main-ui').style.flex = '1';
+  document.getElementById('main-toolbar').style.display = 'flex';
+  document.getElementById('file-name').textContent = currentFileName;
+}
+
+function loadNew(){
+  document.getElementById('empty-state').style.display = 'block';
+  document.getElementById('main-ui').style.display = 'none';
+  document.getElementById('main-toolbar').style.display = 'none';
+  clearSearch();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────
+function renderGrid(){
+  const numRows = grid.length;
+  const numCols = grid[0]?grid[0].length:0;
+  document.getElementById('dim-label').textContent = `${numRows} rows × ${numCols} columns`;
+
+  let html = '<table><thead><tr><th class="corner">#</th>';
+  for(let c=0;c<numCols;c++){
+    html += `<th>${COL_LABELS[c]||'Col '+c}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  for(let r=0;r<numRows;r++){
+    html += `<tr data-row="${r}"><td class="row-num">${r}</td>`;
+    for(let c=0;c<numCols;c++){
+      const val = (grid[r][c]||"").replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      html += `<td class="col-${c}"><input value="${val}" data-r="${r}" data-c="${c}" placeholder="—" /></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+
+  const gc = document.getElementById('grid-container');
+  gc.innerHTML = html;
+
+  // Input handler — updates grid, triggers autosave, highlights length
+  gc.addEventListener('input', e => {
+    if(e.target.tagName !== 'INPUT') return;
+    const r = +e.target.dataset.r, c = +e.target.dataset.c;
+    lastEditedRow = r;
+    grid[r][c] = e.target.value;
+    if(c === 0){
+      const len = e.target.value.length;
+e.target.style.background = len > 280
+  ? 'rgba(224,92,110,0.35)'
+  : len > 200
+    ? 'rgba(246,173,85,0.35)'
+    : '';
+    }
+    scheduleAutosave();
+    // debounced snapshot for undo
+    clearTimeout(gc._snapTimer);
+    gc._snapTimer = setTimeout(snapshot, 600);
+    // re-run search highlight if active
+    if(document.getElementById('search-input').value) doSearch();
+  });
+
+  // Keyboard navigation: arrows + Enter move between cells
+  gc.addEventListener('keydown', e => {
+    if(e.target.tagName !== 'INPUT') return;
+    const r = +e.target.dataset.r, c = +e.target.dataset.c;
+    let nr = r, nc = c;
+    if(e.key === 'ArrowDown' || (e.key === 'Enter' && !e.shiftKey)) { nr = r+1; }
+    else if(e.key === 'ArrowUp'   || (e.key === 'Enter' && e.shiftKey))  { nr = r-1; }
+    else if(e.key === 'ArrowRight' && e.target.selectionEnd === e.target.value.length) { nc = c+1; }
+    else if(e.key === 'ArrowLeft'  && e.target.selectionStart === 0) { nc = c-1; }
+    else if(e.key === 'Tab') { e.preventDefault(); nc = e.shiftKey ? c-1 : c+1; if(nc < 0){ nc = grid[0].length-1; nr = r-1; } else if(nc >= grid[0].length){ nc=0; nr=r+1; } }
+    else return;
+    const next = gc.querySelector(`input[data-r="${nr}"][data-c="${nc}"]`);
+    if(next){ e.preventDefault(); next.focus(); next.select(); }
+  });
+
+  // Auto-highlight overlong dialogue cells on load
+  gc.querySelectorAll('td.col-0 input').forEach(inp => {
+    const len = inp.value.length;
+    if(len > 280) inp.style.background = 'rgba(224,92,110,0.35)';
+else if(len > 200) inp.style.background = 'rgba(246,173,85,0.35)';
+  });
+
+  // Re-apply search if active
+  const q = document.getElementById('search-input').value;
+  if(q) doSearch();
+
+  scheduleAutosave();
+}
+
+// ─── SEARCH / FILTER ─────────────────────────────────────────────
+function toggleSearch(){
+  const bar = document.getElementById('search-bar');
+  const visible = bar.classList.toggle('visible');
+  if(visible) document.getElementById('search-input').focus();
+  else clearSearch();
+}
+
+function updateSearchColSelect(){
+  const sel = document.getElementById('search-col');
+  sel.innerHTML = '<option value="-1">All columns</option>';
+  COL_LABELS.forEach((l,i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = l;
+    sel.appendChild(o);
+  });
+}
+
+function doSearch(){
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  const colFilter = +document.getElementById('search-col').value;
+  const rows = document.querySelectorAll('#grid-container tbody tr');
+  let matchCount = 0;
+
+  // Clear all highlights first
+  document.querySelectorAll('#grid-container input.search-hit').forEach(el => el.classList.remove('search-hit'));
+  rows.forEach(tr => { tr.classList.remove('search-match', 'hidden-row'); });
+
+  if(!q){ document.getElementById('search-count').textContent = ''; return; }
+
+  rows.forEach(tr => {
+    const r = +tr.dataset.row;
+    let rowMatches = false;
+    const inputs = tr.querySelectorAll('input');
+    inputs.forEach(inp => {
+      const c = +inp.dataset.c;
+      if(colFilter !== -1 && c !== colFilter) return;
+      if(inp.value.toLowerCase().includes(q)){
+        inp.classList.add('search-hit');
+        rowMatches = true;
+      }
+    });
+    if(rowMatches){ tr.classList.add('search-match'); matchCount++; }
+    else { tr.classList.add('hidden-row'); }
+  });
+
+  document.getElementById('search-count').textContent = matchCount
+    ? `${matchCount} match${matchCount>1?'es':''}`
+    : 'no matches';
+}
+
+function clearSearch(){
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-count').textContent = '';
+  document.querySelectorAll('#grid-container tbody tr').forEach(tr => {
+    tr.classList.remove('search-match','hidden-row');
+  });
+  document.querySelectorAll('#grid-container input.search-hit').forEach(el => el.classList.remove('search-hit'));
+}
+
+// ─── ROW / COL OPS ───────────────────────────────────────────────
+function addRow(){
+  const cols = grid[0]?grid[0].length:COL_LABELS.length;
+  const insertAt = lastEditedRow !== null ? lastEditedRow + 1 : grid.length;
+  grid.splice(insertAt, 0, Array(cols).fill(""));
+  snapshot();
+  renderGrid();
+  toast('+1 row at position ' + insertAt);
+  updateSearchColSelect();
+}
+
+function addCol(){
+  const name = prompt('Column name:', 'Col '+grid[0].length);
+  if(name === null) return;
+  COL_LABELS.push(name || 'Col '+grid[0].length);
+  for(let r=0;r<grid.length;r++) grid[r].push("");
+  snapshot();
+  renderGrid();
+  updateSearchColSelect();
+  toast('+1 column added');
+}
+
+function delLastRow(){
+  if(grid.length>1){
+    grid.pop();
+    if(lastEditedRow >= grid.length) lastEditedRow = grid.length - 1;
+    snapshot();
+    renderGrid();
+    toast('Last row removed');
+  }
+}
+
+function delLastCol(){
+  if(grid[0]&&grid[0].length>1){
+    COL_LABELS.pop();
+    for(let r=0;r<grid.length;r++) grid[r].pop();
+    snapshot();
+    renderGrid();
+    updateSearchColSelect();
+    toast('Last column removed');
+  }
+}
+
+// ─── JSON OPS ────────────────────────────────────────────────────
+function buildJSON(){
+  const numRows=grid.length, numCols=grid[0].length;
+  const data=[];
+  for(let c=0;c<numCols;c++){
+    const col=[];
+    for(let r=0;r<numRows;r++) col.push([grid[r][c]]);
+    data.push(col);
+  }
+  return JSON.stringify({"c2array":true,"size":[numCols,numRows,1],"data":data},null,2);
+}
+
+function openExport(){
+  document.getElementById('export-text').value = buildJSON();
+  document.getElementById('export-modal').classList.add('open');
+}
+function openImport(){
+  document.getElementById('import-text').value = '';
+  document.getElementById('import-modal').classList.add('open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function doImport(){
+  const s = document.getElementById('import-text').value;
+  try {
+    const parsed = JSON.parse(s);
+    loadFromParsed(parsed);
+    closeModal('import-modal');
+    toast('Imported successfully!');
+  } catch(e) { toast('Parse error: '+e.message, true); }
+}
+
+function copyJSON(){
+  const j = buildJSON();
+  navigator.clipboard.writeText(j).then(()=>toast('JSON copied!')).catch(()=>{
+    openExport(); toast('Clipboard unavailable — copy from box');
+  });
+}
+function copyFromModal(){
+  const t = document.getElementById('export-text');
+  navigator.clipboard.writeText(t.value).then(()=>toast('Copied!')).catch(()=>{ t.select(); document.execCommand('copy'); toast('Copied!'); });
+}
+
+function downloadJSON(){
+  const j = buildJSON();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([j],{type:'application/json'}));
+  a.download = currentFileName || 'array.json';
+  a.click();
+  toast('Downloaded!');
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, err=false){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = err ? '#e05c6e' : '#ffaa33';
+  el.style.color = err ? '#fff' : '#1a1a1a';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+// ─── DRAG & DROP ─────────────────────────────────────────────────
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', ()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+// ─── GLOBAL KEYBOARD SHORTCUTS ───────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if(tag === 'TEXTAREA') return; // don't intercept modals
+
+  if((e.ctrlKey||e.metaKey) && e.key === 'z' && !e.shiftKey){ e.preventDefault(); undo(); }
+  else if((e.ctrlKey||e.metaKey) && (e.key === 'y' || (e.key==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
+  else if((e.ctrlKey||e.metaKey) && e.key === 'f'){ e.preventDefault(); toggleSearch(); }
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadAutosave();
+});
+</script>
+</body>
+</html>
