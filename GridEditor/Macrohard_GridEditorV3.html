@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>C3 Grid Editor</title>
+<style>
+:root {
+  --bg: #1a1a1a;
+  --surface: #222222;
+  --border: #555555;
+  --text: #e0e0e0;
+  --dim: #999999;
+  --danger-text: #ff6b6b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: Consolas, "Courier New", monospace; font-size: 14px; min-height: 100vh; display: flex; flex-direction: column; }
+header { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); position: sticky; top: 0; z-index: 100; }
+.logo { font-weight: bold; font-size: 14px; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
+.logo img { height: 20px; width: auto; }
+.toolbar { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; }
+.btn { font-family: Consolas, "Courier New", monospace; font-size: 13px; padding: 6px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; }
+.btn:hover { background: #333333; }
+.btn:active { background: #444444; }
+.btn.danger { color: var(--danger-text); border-color: var(--danger-text); }
+.btn.danger:hover { background: #3a2222; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--surface); }
+.sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+#search-bar { padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); display: none; align-items: center; gap: 8px; }
+#search-bar.visible { display: flex; }
+#search-input { flex: 1; max-width: 280px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: Consolas, "Courier New", monospace; font-size: 13px; padding: 6px 8px; }
+#search-col { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: Consolas, "Courier New", monospace; font-size: 13px; padding: 5px; cursor: pointer; }
+#search-count { font-size: 13px; color: var(--dim); }
+#drop-zone { border: 1px solid var(--border); margin: 28px; padding: 52px 28px; text-align: center; cursor: pointer; }
+#drop-zone:hover { border-color: var(--text); }
+#drop-zone h2 { font-size: 16px; margin-bottom: 8px; color: var(--text); }
+#drop-zone p { color: var(--dim); font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+#drop-zone input[type=file] { display: none; }
+#status-bar { padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; color: var(--dim); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.filetag { color: var(--text); font-weight: bold; }
+#autosave-indicator { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+#autosave-indicator .dot { width: 6px; height: 6px; background: var(--text); border-radius: 50%; }
+#grid-container { flex: 1; overflow: auto; }
+table { border-collapse: collapse; width: max-content; min-width: 100%; }
+thead th { background: var(--surface); color: var(--text); font-size: 13px; font-weight: bold; padding: 8px 10px; border: 1px solid var(--border); position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+thead th.corner { position: sticky; left: 0; z-index: 20; background: var(--surface); min-width: 40px; }
+tbody tr.hidden-row { display: none; }
+tbody tr.search-match td { background: #2a2a1a; }
+td { border: 1px solid var(--border); padding: 0; min-width: 190px; max-width: 320px; }
+td.row-num { background: var(--surface); color: var(--dim); font-size: 12px; text-align: right; padding: 0 8px 0 0; position: sticky; left: 0; z-index: 5; min-width: 40px; max-width: 40px; border-right: 1px solid var(--border); user-select: none; }
+td input { width: 100%; background: transparent; border: none; outline: none; color: var(--text); font-family: Consolas, "Courier New", monospace; font-size: 13px; padding: 6px 8px; display: block; }
+td input:focus { background: #2a2a2a; outline: 1px solid var(--text); outline-offset: -1px; }
+td input.search-hit { background: #3a3a1a !important; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); padding: 16px; width: 90%; max-width: 580px; }
+.modal h3 { font-size: 14px; margin-bottom: 12px; }
+.modal textarea { width: 100%; height: 180px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: Consolas, "Courier New", monospace; font-size: 12px; padding: 8px; resize: vertical; outline: none; }
+.modal textarea:focus { border-color: var(--text); }
+.modal-actions { display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; }
+#toast { position: fixed; bottom: 14px; right: 14px; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 14px; z-index: 999; display: none; font-family: Consolas, "Courier New", monospace; }
+#toast.show { display: block; }
+#toast.err { border-color: var(--danger-text); color: var(--danger-text); }
+#empty-state { display: block; }
+#main-ui { display: none; }
+.modal.wide { max-width: 900px; }
+#batch-drop { border: 1px solid var(--border); padding: 24px; text-align: center; cursor: pointer; margin-bottom: 10px; }
+#batch-drop:hover { border-color: var(--text); }
+#batch-drop input[type=file] { display: none; }
+.batch-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.batch-controls label { color: var(--dim); font-size: 13px; }
+.batch-controls input[type=number] { width: 50px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: Consolas, "Courier New", monospace; font-size: 13px; padding: 5px; }
+#batch-summary { font-size: 13px; color: var(--text); margin-bottom: 10px; }
+#batch-table-wrap { max-height: 340px; overflow: auto; border: 1px solid var(--border); }
+#batch-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#batch-table th { position: sticky; top: 0; background: var(--surface); color: var(--text); padding: 6px 8px; text-align: left; border: 1px solid var(--border); }
+#batch-table td { border: 1px solid var(--border); padding: 6px 8px; }
+#batch-table tr.total-row { font-weight: bold; background: #2a2a2a; }
+#batch-table tr.error-row { color: var(--danger-text); }
+#batch-table button { font-family: Consolas, "Courier New", monospace; font-size: 12px; padding: 4px 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; }
+#batch-table button:hover { background: #333333; }
+.batch-details ul { margin: 6px 0 6px 18px; }
+.batch-details li { margin-bottom: 3px; }
+.batch-details b { color: var(--text); }
+#count-col-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: Consolas, "Courier New", monospace; font-size: 13px; padding: 4px 6px; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <img src="https://i.ibb.co/hRvd10m3/Macrohard-Logo.png" alt="" />
+    C3GridEditor
+  </div>
+  <div class="toolbar" id="main-toolbar" style="display:none">
+    <button class="btn" id="btn-undo" onclick="undo()" disabled>Undo</button>
+    <button class="btn" id="btn-redo" onclick="redo()" disabled>Redo</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="addRow()">Add Row</button>
+    <button class="btn" onclick="addCol()">Add Column</button>
+    <button class="btn danger" onclick="delLastRow()">Delete Row</button>
+    <button class="btn danger" onclick="delLastCol()">Delete Column</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="toggleSearch()">Search</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="openExport()">Export</button>
+    <button class="btn" onclick="copyJSON()">Copy JSON</button>
+    <button class="btn" onclick="openImport()">Import</button>
+    <button class="btn" onclick="downloadJSON()">Download</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="loadNew()">Load New File</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="openBatchCount()">Batch Word Count</button>
+  </div>
+</header>
+<div id="empty-state">
+  <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <h2>Drop JSON file here</h2>
+    <p>Construct 3 C3array format &mdash; Made for My Toxic Darling by Macrohard</p>
+    <button class="btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">Browse File</button>
+    &nbsp;
+    <button class="btn" onclick="event.stopPropagation();loadDefault()">Load Demo (elevatorkino)</button>
+    <input type="file" id="file-input" accept=".json" onchange="handleFile(this.files[0])"/>
+  </div>
+</div>
+<div id="main-ui">
+  <div id="status-bar">
+    <span id="file-name" class="filetag">untitled.json</span>
+    <span id="dim-label">0r x 0c</span>
+    <span style="color:#222">|</span>
+    <label>Count column: <select id="count-col-select" onchange="onCountColChange()"></select></label>
+    <span id="count-label" class="filetag">0w / 0c</span>
+    <span style="color:#222">|</span>
+    <span>vibecoded by dieclick</span>
+    <div id="autosave-indicator"><div class="dot"></div><span id="autosave-label">saved</span></div>
+  </div>
+  <div id="search-bar">
+    <input id="search-input" placeholder="search..." oninput="doSearch()" />
+    <select id="search-col" onchange="doSearch()"><option value="-1">all cols</option></select>
+    <span id="search-count"></span>
+    <button class="btn" onclick="clearSearch()">Clear</button>
+  </div>
+  <div id="grid-container"></div>
+</div>
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <h3>Export JSON</h3>
+    <textarea id="export-text" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="copyFromModal()">Copy</button>
+      <button class="btn" onclick="closeModal('export-modal')">Close</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="import-modal">
+  <div class="modal">
+    <h3>Import JSON</h3>
+    <textarea id="import-text" placeholder="paste C3array JSON..."></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="doImport()">Import</button>
+      <button class="btn" onclick="closeModal('import-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="batch-modal">
+  <div class="modal wide">
+    <h3>Batch Word / Character Count</h3>
+    <div id="batch-drop" onclick="document.getElementById('batch-file-input').click()">
+      <span>Drop multiple JSON files here, or click to browse</span>
+      <input type="file" id="batch-file-input" accept=".json" multiple onchange="handleBatchFiles(this.files)"/>
+    </div>
+    <div class="batch-controls">
+      <label>Text column: <input type="number" id="batch-column" value="1" min="0"></label>
+      <button class="btn" onclick="processBatch()">Process</button>
+      <button class="btn" id="batch-download-btn" onclick="downloadBatchCSV()" disabled>Download CSV</button>
+    </div>
+    <div id="batch-summary"></div>
+    <div id="batch-table-wrap">
+      <table id="batch-table">
+        <thead><tr><th>File</th><th>Lines</th><th>Words</th><th>Characters</th><th>Chars (no spaces)</th><th>Notes</th><th></th></tr></thead>
+        <tbody id="batch-table-body"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('batch-modal')">Close</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const DEFAULT_JSON = {"C3array":true,"size":[2,18,1],"data":[[[""],[""],["2"],["3"],["2"],["2"],["2"],["2"],["2"],["2"],["3"],["3"],["3"],["2"],["1"],["1"],["1"],["1"]],[["1=Nibua, 2=cancer, 3=yun"],[""],["Are all the elevators just going up?"],["The exit levels must be infested with gunmen by now. Maybe even locals as well."],["Oh dude...Are we trapped inside now?"],["Where the hell are we even heading?"],["OK, So, let me get things straight"],["You came to kill the same salary we did, right?"],["But, Why did you wanted to kill him for?"],["Why were you searching him?"],["Someone sent me a letter for a heist..."],["But the whole thing was a setup all along"],["I came here to get answers"],["You seem pretty convinced to me though"],["You dont know a damn thing either blue ball"],["We can't let a madman run wide sending these death letters"],["He tried killing me. He ought to pay..."],["And we make sure they always do pay"]]]};
+const LABEL_PATTERN=/^\d+=/;
+function isArrayFormat(parsed){return !!(parsed && (parsed.C3array||parsed.c2array||parsed.c3array));}
+let COL_LABELS=[], grid=[], currentFileName="untitled.json", lastEditedRow=null;
+let history=[], historyIndex=-1;
+function snapshot(){const s=grid.map(r=>[...r]);history=history.slice(0,historyIndex+1);history.push(s);if(history.length>100)history.shift();historyIndex=history.length-1;updateUndoButtons();}
+function undo(){if(historyIndex<=0)return;historyIndex--;grid=history[historyIndex].map(r=>[...r]);renderGrid();updateUndoButtons();toast('undo');}
+function redo(){if(historyIndex>=history.length-1)return;historyIndex++;grid=history[historyIndex].map(r=>[...r]);renderGrid();updateUndoButtons();toast('redo');}
+function updateUndoButtons(){document.getElementById('btn-undo').disabled=historyIndex<=0;document.getElementById('btn-redo').disabled=historyIndex>=history.length-1;}
+const AUTOSAVE_KEY='macrohard_grid_autosave';let autosaveTimer;
+function scheduleAutosave(){clearTimeout(autosaveTimer);setAutosaveLabel('...');autosaveTimer=setTimeout(()=>{try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({fileName:currentFileName,colLabels:[...COL_LABELS],grid:grid.map(r=>[...r])}));setAutosaveLabel('saved');}catch(e){setAutosaveLabel('fail');}},800);}
+function setAutosaveLabel(msg){const el=document.getElementById('autosave-label');if(el)el.textContent=msg;}
+function loadAutosave(){try{const raw=localStorage.getItem(AUTOSAVE_KEY);if(!raw)return false;const data=JSON.parse(raw);if(!data.grid||!data.grid.length)return false;if(!confirm('Autosave found for "' +(data.fileName||'unknown')+'". Restore?'))return false;currentFileName=data.fileName||'untitled.json';COL_LABELS=data.colLabels?[...data.colLabels]:[];grid=data.grid.map(r=>[...r]);showUI();renderGrid();updateSearchColSelect();populateCountColSelect();snapshot();return true;}catch(e){return false;}}
+function loadDefault(){currentFileName="elevatorkino_EN.json";loadFromParsed(DEFAULT_JSON);}
+function handleFile(file){if(!file)return;currentFileName=file.name;const reader=new FileReader();reader.onload=e=>{try{loadFromParsed(JSON.parse(e.target.result));}catch(err){toast('invalid json',true);}};reader.readAsText(file);}
+function loadFromParsed(parsed){if(!isArrayFormat(parsed)||!parsed.data){toast('not a valid C3/c2 array',true);return;}const numCols=parsed.data.length,numRows=parsed.data[0].length;COL_LABELS=[];for(let c=0;c<numCols;c++){const first=parsed.data[c][0]?(parsed.data[c][0][0]!==undefined?String(parsed.data[c][0][0]):''):'';COL_LABELS.push(first||'col'+c);}grid=[];for(let r=0;r<numRows;r++){grid[r]=[];for(let c=0;c<numCols;c++){const v=parsed.data[c][r][0];grid[r][c]=v!==undefined&&v!==null?String(v):"";}}history=[];historyIndex=-1;snapshot();showUI();renderGrid();updateSearchColSelect();populateCountColSelect();}
+function showUI(){document.getElementById('empty-state').style.display='none';document.getElementById('main-ui').style.cssText='display:flex;flex-direction:column;flex:1';document.getElementById('main-toolbar').style.display='flex';document.getElementById('file-name').textContent=currentFileName;}
+function loadNew(){COL_LABELS=[];grid=[];history=[];historyIndex=-1;lastEditedRow=null;document.getElementById('empty-state').style.display='block';document.getElementById('main-ui').style.display='none';document.getElementById('main-toolbar').style.display='none';clearSearch();}
+function populateCountColSelect(){const sel=document.getElementById('count-col-select');sel.innerHTML='';COL_LABELS.forEach((l,i)=>{const o=document.createElement('option');o.value=i;o.textContent='col'+i+(l?': '+l.slice(0,18):'');sel.appendChild(o);});sel.value=COL_LABELS.length>1?1:0;}
+function onCountColChange(){updateCountLabel();}
+function countColumnText(col){let words=0,chars=0,charsNoSpaces=0;if(!grid.length)return{words,chars,charsNoSpaces};const lines=[];for(let r=0;r<grid.length;r++){const val=(grid[r][col]||'').trim();if(!val)continue;if(LABEL_PATTERN.test(val))continue;lines.push(val);}const full=lines.join(' ');words=full.trim()===''?0:full.trim().split(/\s+/).length;chars=full.length;charsNoSpaces=full.replace(/ /g,'').length;return{words,chars,charsNoSpaces};}
+function updateCountLabel(){const sel=document.getElementById('count-col-select');if(!sel||sel.options.length===0){document.getElementById('count-label').textContent='0w / 0c';return;}const col=+sel.value;const{words,chars}=countColumnText(col);document.getElementById('count-label').textContent=words+'w / '+chars+'c';}
+function renderGrid(){const numRows=grid.length,numCols=grid[0]?grid[0].length:0;document.getElementById('dim-label').textContent=numRows+'r x '+numCols+'c';let html='<table><thead><tr><th class="corner"></th>';for(let c=0;c<numCols;c++)html+='<th>'+(COL_LABELS[c]||'col'+c)+'</th>';html+='</tr></thead><tbody>';for(let r=0;r<numRows;r++){html+='<tr data-row="'+r+'"><td class="row-num">'+r+'</td>';for(let c=0;c<numCols;c++){const val=(grid[r][c]||"").replace(/"/g,'&quot;').replace(/</g,'&lt;');html+='<td class="col-'+c+'"><input value="'+val+'" data-r="'+r+'" data-c="'+c+'" /></td>';}html+='</tr>';}html+='</tbody></table>';const gc=document.getElementById('grid-container');gc.innerHTML=html;
+gc.addEventListener('input',e=>{if(e.target.tagName!=='INPUT')return;const r=+e.target.dataset.r,c=+e.target.dataset.c;lastEditedRow=r;grid[r][c]=e.target.value;if(c===0){const len=e.target.value.length;e.target.style.background=len>280?'rgba(170,51,51,0.2)':len>200?'rgba(200,169,110,0.1)':'';}scheduleAutosave();updateCountLabel();clearTimeout(gc._snapTimer);gc._snapTimer=setTimeout(snapshot,600);if(document.getElementById('search-input').value)doSearch();});
+gc.addEventListener('keydown',e=>{if(e.target.tagName!=='INPUT')return;const r=+e.target.dataset.r,c=+e.target.dataset.c;let nr=r,nc=c;if(e.key==='ArrowDown'||(e.key==='Enter'&&!e.shiftKey))nr=r+1;else if(e.key==='ArrowUp'||(e.key==='Enter'&&e.shiftKey))nr=r-1;else if(e.key==='ArrowRight'&&e.target.selectionEnd===e.target.value.length)nc=c+1;else if(e.key==='ArrowLeft'&&e.target.selectionStart===0)nc=c-1;else if(e.key==='Tab'){e.preventDefault();nc=e.shiftKey?c-1:c+1;if(nc<0){nc=grid[0].length-1;nr=r-1;}else if(nc>=grid[0].length){nc=0;nr=r+1;}}else return;const next=gc.querySelector('input[data-r="'+nr+'"][data-c="'+nc+'"]');if(next){e.preventDefault();next.focus();next.select();}});
+gc.querySelectorAll('td.col-0 input').forEach(inp=>{const len=inp.value.length;if(len>280)inp.style.background='rgba(170,51,51,0.2)';else if(len>200)inp.style.background='rgba(200,169,110,0.1)';});
+if(document.getElementById('search-input').value)doSearch();scheduleAutosave();updateCountLabel();}
+function toggleSearch(){const bar=document.getElementById('search-bar');const visible=bar.classList.toggle('visible');if(visible)document.getElementById('search-input').focus();else clearSearch();}
+function updateSearchColSelect(){const sel=document.getElementById('search-col');sel.innerHTML='<option value="-1">all cols</option>';COL_LABELS.forEach((l,i)=>{const o=document.createElement('option');o.value=i;o.textContent=l;sel.appendChild(o);});}
+function doSearch(){const q=document.getElementById('search-input').value.trim().toLowerCase();const cf=+document.getElementById('search-col').value;const rows=document.querySelectorAll('#grid-container tbody tr');let n=0;document.querySelectorAll('#grid-container input.search-hit').forEach(el=>el.classList.remove('search-hit'));rows.forEach(tr=>tr.classList.remove('search-match','hidden-row'));if(!q){document.getElementById('search-count').textContent='';return;}rows.forEach(tr=>{let hit=false;tr.querySelectorAll('input').forEach(inp=>{if(cf!==-1&&+inp.dataset.c!==cf)return;if(inp.value.toLowerCase().includes(q)){inp.classList.add('search-hit');hit=true;}});if(hit){tr.classList.add('search-match');n++;}else tr.classList.add('hidden-row');});document.getElementById('search-count').textContent=n?n+(n>1?' matches':' match'):'none';}
+function clearSearch(){document.getElementById('search-input').value='';document.getElementById('search-count').textContent='';document.querySelectorAll('#grid-container tbody tr').forEach(tr=>tr.classList.remove('search-match','hidden-row'));document.querySelectorAll('#grid-container input.search-hit').forEach(el=>el.classList.remove('search-hit'));}
+function addRow(){const cols=grid[0]?grid[0].length:COL_LABELS.length;const at=lastEditedRow!==null?lastEditedRow+1:grid.length;grid.splice(at,0,Array(cols).fill(""));snapshot();renderGrid();toast('+row at '+at);}
+function addCol(){const name=prompt('column name:','col'+(grid[0]?grid[0].length:COL_LABELS.length));if(name===null)return;COL_LABELS.push(name||'col'+COL_LABELS.length);for(let r=0;r<grid.length;r++)grid[r].push("");snapshot();renderGrid();updateSearchColSelect();populateCountColSelect();toast('+col');}
+function delLastRow(){if(grid.length>1){grid.pop();if(lastEditedRow>=grid.length)lastEditedRow=grid.length-1;snapshot();renderGrid();toast('row removed');}}
+function delLastCol(){if(grid[0]&&grid[0].length>1){COL_LABELS.pop();for(let r=0;r<grid.length;r++)grid[r].pop();snapshot();renderGrid();updateSearchColSelect();populateCountColSelect();toast('col removed');}}
+function buildJSON(){const nr=grid.length,nc=grid[0].length,data=[];for(let c=0;c<nc;c++){const col=[];for(let r=0;r<nr;r++)col.push([grid[r][c]]);data.push(col);}return JSON.stringify({"C3array":true,"size":[nc,nr,1],"data":data},null,2);}
+function openExport(){document.getElementById('export-text').value=buildJSON();document.getElementById('export-modal').classList.add('open');}
+function openImport(){document.getElementById('import-text').value='';document.getElementById('import-modal').classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function doImport(){try{loadFromParsed(JSON.parse(document.getElementById('import-text').value));closeModal('import-modal');toast('imported');}catch(e){toast('parse error',true);}}
+function copyJSON(){navigator.clipboard.writeText(buildJSON()).then(()=>toast('copied')).catch(()=>{openExport();});}
+function copyFromModal(){const t=document.getElementById('export-text');navigator.clipboard.writeText(t.value).then(()=>toast('copied')).catch(()=>{t.select();document.execCommand('copy');toast('copied');});}
+function downloadJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buildJSON()],{type:'application/json'}));a.download=currentFileName||'array.json';a.click();toast('downloaded');}
+let toastTimer;
+function toast(msg,err=false){const el=document.getElementById('toast');el.textContent=msg;el.className=err?'show err':'show';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1800);}
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+document.addEventListener('keydown',e=>{if(document.activeElement.tagName==='TEXTAREA')return;if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();undo();}else if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){e.preventDefault();redo();}else if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();toggleSearch();}});
+let batchFiles=[], batchRows=[];
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function openBatchCount(){document.getElementById('batch-modal').classList.add('open');}
+function handleBatchFiles(fileList){batchFiles=Array.from(fileList).sort((a,b)=>a.name.localeCompare(b.name));document.getElementById('batch-summary').textContent=batchFiles.length+' file(s) selected. Click process.';}
+function readFileAsText(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.readAsText(file);});}
+function extractBatchText(parsed,col){if(!isArrayFormat(parsed)||!parsed.data)throw new Error('not a valid C3/c2 array');const colData=parsed.data[col];if(!colData)throw new Error('column '+col+' does not exist (file has '+parsed.data.length+' columns)');const kept=[],skipped=[];for(const row of colData){let raw=row&&row[0];if(typeof raw!=='string')continue;const val=raw.trim();if(!val)continue;if(LABEL_PATTERN.test(val)){skipped.push(val);continue;}kept.push(val);}return{kept,skipped};}
+async function processBatch(){if(!batchFiles.length){document.getElementById('batch-summary').textContent='No files selected.';return;}const col=parseInt(document.getElementById('batch-column').value,10)||0;const body=document.getElementById('batch-table-body');body.innerHTML='';batchRows=[];let totalWords=0,totalChars=0,totalCharsNoSpaces=0,idx=0;
+for(const file of batchFiles){idx++;let rowHtml='';try{const text=await readFileAsText(file);const parsed=JSON.parse(text);const{kept,skipped}=extractBatchText(parsed,col);const full=kept.join(' ');const words=full.trim()===''?0:full.trim().split(/\s+/).length;const chars=full.length;const charsNoSpaces=full.replace(/ /g,'').length;totalWords+=words;totalChars+=chars;totalCharsNoSpaces+=charsNoSpaces;batchRows.push([file.name,kept.length,words,chars,charsNoSpaces,'']);const detailsId='bdetails-'+idx;const keptHtml=kept.map(l=>'<li>'+escapeHtml(l)+'</li>').join('');const skippedHtml=skipped.length?('<p><b>Skipped as labels ('+skipped.length+'):</b></p><ul>'+skipped.map(l=>'<li>'+escapeHtml(l)+'</li>').join('')+'</ul>'):'<p><b>Skipped as labels:</b> none</p>';rowHtml='<tr><td>'+file.name+'</td><td>'+kept.length+'</td><td>'+words+'</td><td>'+chars+'</td><td>'+charsNoSpaces+'</td><td></td><td><button type="button" onclick="const d=document.getElementById(\''+detailsId+'\');d.style.display=d.style.display===\'none\'?\'table-row\':\'none\';">show</button></td></tr><tr id="'+detailsId+'" style="display:none;"><td colspan="7" class="batch-details"><p><b>Counted as content ('+kept.length+'):</b></p><ul>'+(keptHtml||'<li><i>none</i></li>')+'</ul>'+skippedHtml+'</td></tr>';}catch(e){batchRows.push([file.name,'','','','','ERROR: '+e.message]);rowHtml='<tr class="error-row"><td>'+file.name+'</td><td colspan="4">ERROR</td><td>'+e.message+'</td><td></td></tr>';}
+body.insertAdjacentHTML('beforeend',rowHtml);}
+body.insertAdjacentHTML('beforeend','<tr class="total-row"><td>TOTAL</td><td></td><td>'+totalWords+'</td><td>'+totalChars+'</td><td>'+totalCharsNoSpaces+'</td><td></td><td></td></tr>');batchRows.push(['TOTAL','',totalWords,totalChars,totalCharsNoSpaces,'']);document.getElementById('batch-summary').textContent='Total: '+totalWords+' words, '+totalChars+' characters ('+totalCharsNoSpaces+' no spaces) across '+batchFiles.length+' files.';document.getElementById('batch-download-btn').disabled=false;}
+function downloadBatchCSV(){const header=['File','Lines','Words','Characters','Characters (no spaces)','Notes'];const rows=[header,...batchRows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));const csv=rows.join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='results.csv';a.click();URL.revokeObjectURL(url);}
+const bdz=document.getElementById('batch-drop');
+bdz.addEventListener('dragover',e=>{e.preventDefault();bdz.classList.add('drag-over');});
+bdz.addEventListener('dragleave',()=>bdz.classList.remove('drag-over'));
+bdz.addEventListener('drop',e=>{e.preventDefault();bdz.classList.remove('drag-over');if(e.dataTransfer.files.length)handleBatchFiles(e.dataTransfer.files);});
+window.addEventListener('DOMContentLoaded',()=>{loadAutosave();});
+</script>
+</body>
+</html>
