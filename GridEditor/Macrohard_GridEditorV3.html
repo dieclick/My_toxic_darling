@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>C3 Grid Editor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #1a1a1a;
@@ -111,16 +112,19 @@ td input.search-hit { background: #3a3a1a !important; }
     <button class="btn" onclick="loadNew()">Load New File</button>
     <div class="sep"></div>
     <button class="btn" onclick="openBatchCount()">Batch Word Count</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="document.getElementById('sheet-input-toolbar').click()">Import Excel/CSV</button>
+    <input type="file" id="sheet-input-toolbar" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])"/>
   </div>
 </header>
 <div id="empty-state">
   <div id="drop-zone" onclick="document.getElementById('file-input').click()">
-    <h2>Drop JSON file here</h2>
-    <p>Construct 3 C3array format &mdash; Made for My Toxic Darling by Macrohard</p>
+    <h2>Drop JSON, Excel, or CSV file here</h2>
+    <p>Construct 3 C3array format &mdash; Made for My Toxic Darling by Macrohard<br>Excel (.xlsx/.xls) and CSV files (including exports from Google Sheets) are automatically converted to C3 format on load.</p>
     <button class="btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">Browse File</button>
     &nbsp;
     <button class="btn" onclick="event.stopPropagation();loadDefault()">Load Demo (elevatorkino)</button>
-    <input type="file" id="file-input" accept=".json" onchange="handleFile(this.files[0])"/>
+    <input type="file" id="file-input" accept=".json,.xlsx,.xls,.csv" onchange="handleFile(this.files[0])"/>
   </div>
 </div>
 <div id="main-ui">
@@ -202,7 +206,9 @@ function scheduleAutosave(){clearTimeout(autosaveTimer);setAutosaveLabel('...');
 function setAutosaveLabel(msg){const el=document.getElementById('autosave-label');if(el)el.textContent=msg;}
 function loadAutosave(){try{const raw=localStorage.getItem(AUTOSAVE_KEY);if(!raw)return false;const data=JSON.parse(raw);if(!data.grid||!data.grid.length)return false;if(!confirm('Autosave found for "' +(data.fileName||'unknown')+'". Restore?'))return false;currentFileName=data.fileName||'untitled.json';COL_LABELS=data.colLabels?[...data.colLabels]:[];grid=data.grid.map(r=>[...r]);showUI();renderGrid();updateSearchColSelect();populateCountColSelect();snapshot();return true;}catch(e){return false;}}
 function loadDefault(){currentFileName="elevatorkino_EN.json";loadFromParsed(DEFAULT_JSON);}
-function handleFile(file){if(!file)return;currentFileName=file.name;const reader=new FileReader();reader.onload=e=>{try{loadFromParsed(JSON.parse(e.target.result));}catch(err){toast('invalid json',true);}};reader.readAsText(file);}
+function handleFile(file){if(!file)return;const ext=(file.name.split('.').pop()||'').toLowerCase();if(ext==='json'){currentFileName=file.name;const reader=new FileReader();reader.onload=e=>{try{loadFromParsed(JSON.parse(e.target.result));}catch(err){toast('invalid json',true);}};reader.readAsText(file);}else if(ext==='xlsx'||ext==='xls'||ext==='csv'){handleSpreadsheetFile(file);}else{toast('unsupported file type',true);}}
+function handleSpreadsheetFile(file){if(typeof XLSX==='undefined'){toast('spreadsheet library failed to load',true);return;}const reader=new FileReader();reader.onload=e=>{try{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const sheetName=wb.SheetNames[0];const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:'',raw:false,blankrows:true});currentFileName=file.name.replace(/\.(xlsx|xls|csv)$/i,'.json');loadFromAOA(aoa);toast('converted to C3 format');}catch(err){toast('spreadsheet parse error',true);}};reader.readAsArrayBuffer(file);}
+function loadFromAOA(aoa){if(!aoa||!aoa.length){toast('empty sheet',true);return;}const numCols=Math.max(...aoa.map(r=>r.length),1);const header=aoa[0]||[];COL_LABELS=[];for(let c=0;c<numCols;c++){const v=header[c];COL_LABELS.push(v!==undefined&&v!==null&&v!==''?String(v):'col'+c);}grid=aoa.map(row=>{const r=[];for(let c=0;c<numCols;c++){const v=row[c];r.push(v!==undefined&&v!==null?String(v):'');}return r;});history=[];historyIndex=-1;snapshot();showUI();renderGrid();updateSearchColSelect();populateCountColSelect();}
 function loadFromParsed(parsed){if(!isArrayFormat(parsed)||!parsed.data){toast('not a valid C3/c2 array',true);return;}const numCols=parsed.data.length,numRows=parsed.data[0].length;COL_LABELS=[];for(let c=0;c<numCols;c++){const first=parsed.data[c][0]?(parsed.data[c][0][0]!==undefined?String(parsed.data[c][0][0]):''):'';COL_LABELS.push(first||'col'+c);}grid=[];for(let r=0;r<numRows;r++){grid[r]=[];for(let c=0;c<numCols;c++){const v=parsed.data[c][r][0];grid[r][c]=v!==undefined&&v!==null?String(v):"";}}history=[];historyIndex=-1;snapshot();showUI();renderGrid();updateSearchColSelect();populateCountColSelect();}
 function showUI(){document.getElementById('empty-state').style.display='none';document.getElementById('main-ui').style.cssText='display:flex;flex-direction:column;flex:1';document.getElementById('main-toolbar').style.display='flex';document.getElementById('file-name').textContent=currentFileName;}
 function loadNew(){COL_LABELS=[];grid=[];history=[];historyIndex=-1;lastEditedRow=null;document.getElementById('empty-state').style.display='block';document.getElementById('main-ui').style.display='none';document.getElementById('main-toolbar').style.display='none';clearSearch();}
