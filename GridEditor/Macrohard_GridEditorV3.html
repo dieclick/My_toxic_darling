@@ -19,7 +19,9 @@ body { background: var(--bg); color: var(--text); font-family: Consolas, "Courie
 header { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); position: sticky; top: 0; z-index: 100; }
 .logo { font-weight: bold; font-size: 14px; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
 .logo img { height: 20px; width: auto; }
-.toolbar { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; align-items: center; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; align-items: center; }
+.toolbar-section { display: flex; gap: 5px; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid #383838; padding: 4px 7px; }
+.toolbar-section-label { font-size: 10px; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; margin-right: 2px; white-space: nowrap; }
 .btn { font-family: Consolas, "Courier New", monospace; font-size: 13px; padding: 6px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; }
 .btn:hover { background: #333333; }
 .btn:active { background: #444444; }
@@ -94,27 +96,40 @@ td input.search-hit { background: #3a3a1a !important; }
     C3GridEditor
   </div>
   <div class="toolbar" id="main-toolbar" style="display:none">
-    <button class="btn" id="btn-undo" onclick="undo()" disabled>Undo</button>
-    <button class="btn" id="btn-redo" onclick="redo()" disabled>Redo</button>
-    <div class="sep"></div>
-    <button class="btn" onclick="addRow()">Add Row</button>
-    <button class="btn" onclick="addCol()">Add Column</button>
-    <button class="btn danger" onclick="delLastRow()">Delete Row</button>
-    <button class="btn danger" onclick="delLastCol()">Delete Column</button>
-    <div class="sep"></div>
-    <button class="btn" onclick="toggleSearch()">Search</button>
-    <div class="sep"></div>
-    <button class="btn" onclick="openExport()">Export</button>
-    <button class="btn" onclick="copyJSON()">Copy JSON</button>
-    <button class="btn" onclick="openImport()">Import</button>
-    <button class="btn" onclick="downloadJSON()">Download</button>
-    <div class="sep"></div>
-    <button class="btn" onclick="loadNew()">Load New File</button>
-    <div class="sep"></div>
-    <button class="btn" onclick="openBatchCount()">Batch Word Count</button>
-    <div class="sep"></div>
-    <button class="btn" onclick="document.getElementById('sheet-input-toolbar').click()">Import Excel/CSV</button>
-    <input type="file" id="sheet-input-toolbar" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])"/>
+    <div class="toolbar-section">
+      <span class="toolbar-section-label">History</span>
+      <button class="btn" id="btn-undo" onclick="undo()" disabled>Undo</button>
+      <button class="btn" id="btn-redo" onclick="redo()" disabled>Redo</button>
+    </div>
+    <div class="toolbar-section">
+      <span class="toolbar-section-label">Grid</span>
+      <button class="btn" onclick="addRow()">+ Row</button>
+      <button class="btn" onclick="addCol()">+ Col</button>
+      <button class="btn danger" onclick="delLastRow()">− Row</button>
+      <button class="btn danger" onclick="delLastCol()">− Col</button>
+    </div>
+    <div class="toolbar-section">
+      <span class="toolbar-section-label">Find</span>
+      <button class="btn" onclick="toggleSearch()">Search</button>
+    </div>
+    <div class="toolbar-section">
+      <span class="toolbar-section-label">Clipboard</span>
+      <button class="btn" onclick="copyJSON()">Copy JSON</button>
+      <button class="btn" onclick="copyForSheets()" title="Copy tab-separated values for Google Sheets / Excel paste">Copy for Sheets</button>
+    </div>
+    <div class="toolbar-section">
+      <span class="toolbar-section-label">File</span>
+      <button class="btn" onclick="openExport()">Export JSON</button>
+      <button class="btn" onclick="openImport()">Import JSON</button>
+      <button class="btn" onclick="downloadJSON()">Download</button>
+      <button class="btn" onclick="document.getElementById('sheet-input-toolbar').click()">Import Excel/CSV</button>
+      <input type="file" id="sheet-input-toolbar" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])"/>
+      <button class="btn danger" onclick="loadNew()">Load New File</button>
+    </div>
+    <div class="toolbar-section">
+      <span class="toolbar-section-label">Tools</span>
+      <button class="btn" onclick="openBatchCount()">Batch Word Count</button>
+    </div>
   </div>
 </header>
 <div id="empty-state">
@@ -235,6 +250,20 @@ function openImport(){document.getElementById('import-text').value='';document.g
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function doImport(){try{loadFromParsed(JSON.parse(document.getElementById('import-text').value));closeModal('import-modal');toast('imported');}catch(e){toast('parse error',true);}}
 function copyJSON(){navigator.clipboard.writeText(buildJSON()).then(()=>toast('copied')).catch(()=>{openExport();});}
+function copyForSheets(){
+  if(!grid.length){toast('no data',true);return;}
+  const rows=[COL_LABELS,...grid];
+  const tsv=rows.map(r=>r.map(cell=>{
+    const s=String(cell??'');
+    // wrap in quotes if cell contains tabs, newlines, or quotes
+    return (s.includes('\t')||s.includes('\n')||s.includes('"'))?'"'+s.replace(/"/g,'""')+'"':s;
+  }).join('\t')).join('\r\n');
+  navigator.clipboard.writeText(tsv).then(()=>toast('copied for Sheets')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=tsv;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    toast('copied for Sheets');
+  });
+}
 function copyFromModal(){const t=document.getElementById('export-text');navigator.clipboard.writeText(t.value).then(()=>toast('copied')).catch(()=>{t.select();document.execCommand('copy');toast('copied');});}
 function downloadJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buildJSON()],{type:'application/json'}));a.download=currentFileName||'array.json';a.click();toast('downloaded');}
 let toastTimer;
