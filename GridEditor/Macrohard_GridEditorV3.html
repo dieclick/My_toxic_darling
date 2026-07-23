@@ -160,6 +160,7 @@ td input.search-hit { background: #3a3a1a !important; }
 
     <div class="sep"></div>
     <button class="btn" onclick="copyCells()">Copy Cells</button>
+    <button class="btn" onclick="pasteCells()">Paste Cells</button>
     <button class="btn" onclick="toggleSearch()">Find</button>
   </div>
 </header>
@@ -168,8 +169,10 @@ td input.search-hit { background: #3a3a1a !important; }
 <div id="empty-state">
   <div id="drop-zone" onclick="document.getElementById('file-input').click()">
     <h2>Drop JSON, Excel, or CSV file here</h2>
-    <p>Construct 3 C3array format — Made for My Toxic Darling by Macrohard<br>Excel (.xlsx/.xls) and CSV files are automatically converted to C3 format on load.</p>
+    <p>Construct 3 C3array format — Made for My Toxic Darling by Macrohard<br>Excel (.xlsx/.xls), CSV, and copied Google Sheets cells are automatically converted to C3 format on load.</p>
     <button class="btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">Browse File</button>
+    &nbsp;
+    <button class="btn" onclick="event.stopPropagation();pasteFromClipboard()">Paste from Clipboard</button>
     &nbsp;
     <button class="btn" onclick="event.stopPropagation();loadDefault()">Load Demo (elevatorkino)</button>
     <input type="file" id="file-input" accept=".json,.xlsx,.xls,.csv" onchange="handleFile(this.files[0])"/>
@@ -181,11 +184,6 @@ td input.search-hit { background: #3a3a1a !important; }
   <div id="status-bar">
     <span id="file-name" class="filetag">untitled.json</span>
     <span id="dim-label">0r × 0c</span>
-    <span style="color:var(--border)">|</span>
-    <label style="color:var(--dim);font-size:13px">Count:
-      <select id="count-col-select" class="field" style="padding:3px 5px;cursor:pointer" onchange="updateCountLabel()"></select>
-    </label>
-    <span id="count-label" class="filetag">0w / 0c</span>
     <span style="color:var(--border)">|</span>
     <span style="color:var(--dim)">vibecoded by dieclick</span>
     <div id="autosave-indicator"><div class="dot"></div><span id="autosave-label">saved</span></div>
@@ -481,17 +479,8 @@ function renderGrid() {
   scheduleAutosave(); updateCountLabel();
 }
 
-// ── Word count ──
-function populateCountColSelect() {
-  const sel = document.getElementById('count-col-select');
-  sel.innerHTML = '';
-  COL_LABELS.forEach((_, i) => {
-    const o = document.createElement('option');
-    o.value = i; o.textContent = 'col' + i;
-    sel.appendChild(o);
-  });
-  sel.value = COL_LABELS.length > 1 ? 1 : 0;
-}
+// ── Word count (status bar count removed; kept for batch WC) ──
+function populateCountColSelect() { /* status bar count removed */ }
 function countColumnText(col) {
   const lines = [];
   for (let r = 0; r < grid.length; r++) {
@@ -506,12 +495,7 @@ function countColumnText(col) {
     charsNoSpaces: full.replace(/ /g, '').length
   };
 }
-function updateCountLabel() {
-  const sel = document.getElementById('count-col-select');
-  if (!sel || sel.options.length === 0) { document.getElementById('count-label').textContent = '0w / 0c'; return; }
-  const { words, chars } = countColumnText(+sel.value);
-  document.getElementById('count-label').textContent = words + 'w / ' + chars + 'c';
-}
+function updateCountLabel() { /* status bar count removed */ }
 
 // ── Search ──
 function toggleSearch() {
@@ -559,7 +543,7 @@ function buildJSON() {
     for (let r = 0; r < nr; r++) col.push([grid[r][c]]);
     data.push(col);
   }
-  return JSON.stringify({ "C3array": true, "size": [nc, nr, 1], "data": data }, null, 2);
+  return JSON.stringify({ "c2array": true, "size": [nc, nr, 1], "data": data }, null, 2);
 }
 function downloadJSON() {
   const a = document.createElement('a');
@@ -587,6 +571,73 @@ function copyCells() {
       toast('cells copied');
     });
 }
+
+// ── Paste Cells (TSV — Google Sheets / Excel clipboard format) ──
+function parseTSV(text) {
+  // Normalise line endings, split rows
+  const rows = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd().split('\n');
+  return rows.map(row => {
+    const cells = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
+      if (inQ) {
+        if (ch === '"' && row[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQ = false;
+        else cur += ch;
+      } else {
+        if (ch === '"') inQ = true;
+        else if (ch === '\t') { cells.push(cur); cur = ''; }
+        else cur += ch;
+      }
+    }
+    cells.push(cur);
+    return cells;
+  });
+}
+
+function loadFromTSV(text) {
+  const aoa = parseTSV(text);
+  if (!aoa.length || (aoa.length === 1 && aoa[0].length === 1 && aoa[0][0] === '')) {
+    toast('nothing to paste', true); return;
+  }
+  currentFileName = 'pasted.json';
+  loadFromAOA(aoa);
+  toast('pasted ' + aoa.length + ' rows');
+}
+
+function pasteCells() {
+  // Called from toolbar button (requires Secure Context)
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(text => {
+      if (!text.trim()) { toast('clipboard empty', true); return; }
+      loadFromTSV(text);
+    }).catch(() => toast('clipboard access denied — use Ctrl+V on the page', true));
+  } else {
+    toast('use Ctrl+V on the page to paste', true);
+  }
+}
+
+function pasteFromClipboard() {
+  // Called from empty-state button
+  pasteCells();
+}
+
+// Global Ctrl+V / Cmd+V — paste into editor when no grid input is focused
+document.addEventListener('paste', e => {
+  const active = document.activeElement;
+  // If focus is inside a grid cell input, let normal paste happen
+  if (active && active.tagName === 'INPUT' && active.closest('#grid-container')) return;
+  // If focus is inside any other text field, don't intercept
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !active.closest('#drop-zone')) return;
+  const text = e.clipboardData && e.clipboardData.getData('text/plain');
+  if (!text || !text.trim()) return;
+  // If it looks like TSV / tabular data (has tab or multi-line)
+  if (text.includes('\t') || text.includes('\n')) {
+    e.preventDefault();
+    loadFromTSV(text);
+  }
+});
 
 // ── Toast ──
 let toastTimer;
@@ -744,7 +795,7 @@ function aoaToC3JSON(aoa) {
     }
     data.push(col);
   }
-  return { json: JSON.stringify({ C3array: true, size: [numCols, numRows, 1], data }, null, 2), numRows, numCols };
+  return { json: JSON.stringify({ c2array: true, size: [numCols, numRows, 1], data }, null, 2), numRows, numCols };
 }
 
 async function processBatchToJSON() {
